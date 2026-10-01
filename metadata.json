@@ -1,0 +1,8 @@
+{
+  "name": "Kimae's Party Bilao",
+  "description": "Order party bilao, food trays, and Filipino party packages online. Fresh, delicious, and perfect for every celebration. Delivery and pickup available.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
