@@ -1,0 +1,250 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Brand Colors - Kimae's Party Bilao */
+    --brand-yellow: 43 96% 56%;
+    --brand-yellow-light: 46 100% 68%;
+    --brand-yellow-dark: 38 90% 44%;
+    --brand-brown: 27 90% 14%;
+    --brand-brown-light: 27 70% 25%;
+    --brand-orange: 35 93% 50%;
+    --brand-cream: 46 100% 97%;
+    --brand-warm: 38 60% 92%;
+
+    /* System Colors */
+    --background: 46 100% 98%;
+    --foreground: 27 90% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 27 90% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 27 90% 10%;
+
+    --primary: 43 96% 56%;
+    --primary-foreground: 27 90% 10%;
+
+    --secondary: 27 90% 14%;
+    --secondary-foreground: 46 100% 97%;
+
+    --muted: 46 60% 94%;
+    --muted-foreground: 27 30% 45%;
+
+    --accent: 35 93% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 38 40% 88%;
+    --input: 38 40% 88%;
+    --ring: 43 96% 56%;
+
+    --radius: 0.75rem;
+
+    /* Semantic */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 43 96% 56%;
+    --warning-foreground: 27 90% 10%;
+    --error: 0 84% 60%;
+    --error-foreground: 0 0% 100%;
+    --info: 214 100% 57%;
+    --info-foreground: 0 0% 100%;
+
+    --sidebar-background: 27 90% 11%;
+    --sidebar-foreground: 46 100% 90%;
+    --sidebar-primary: 43 96% 56%;
+    --sidebar-primary-foreground: 27 90% 10%;
+    --sidebar-accent: 27 70% 20%;
+    --sidebar-accent-foreground: 46 100% 90%;
+    --sidebar-border: 27 50% 20%;
+    --sidebar-ring: 43 96% 56%;
+  }
+
+  .dark {
+    --background: 27 90% 6%;
+    --foreground: 46 100% 95%;
+    --card: 27 80% 9%;
+    --card-foreground: 46 100% 95%;
+    --popover: 27 80% 9%;
+    --popover-foreground: 46 100% 95%;
+    --primary: 43 96% 56%;
+    --primary-foreground: 27 90% 10%;
+    --secondary: 27 50% 20%;
+    --secondary-foreground: 46 100% 90%;
+    --muted: 27 40% 15%;
+    --muted-foreground: 38 30% 60%;
+    --accent: 35 93% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 27 40% 20%;
+    --input: 27 40% 20%;
+    --ring: 43 96% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  h1, h2, h3, .brand-font {
+    font-family: 'Nunito', sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-primary-foreground font-bold px-6 py-3 rounded-xl hover:bg-[hsl(38,90%,44%)] transition-all duration-200 shadow-md hover:shadow-lg active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground font-bold px-6 py-3 rounded-xl hover:bg-[hsl(27,70%,20%)] transition-all duration-200 shadow-md hover:shadow-lg active:scale-95;
+  }
+
+  .btn-outline {
+    @apply border-2 border-primary text-primary font-bold px-6 py-3 rounded-xl hover:bg-primary hover:text-primary-foreground transition-all duration-200 active:scale-95;
+  }
+
+  .card-product {
+    @apply bg-card rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-border hover:-translate-y-1;
+  }
+
+  .badge-status {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .section-title {
+    @apply text-3xl md:text-4xl font-black text-secondary;
+    font-family: 'Nunito', sans-serif;
+  }
+
+  .section-subtitle {
+    @apply text-base text-muted-foreground max-w-2xl mx-auto;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl border border-input bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all;
+  }
+
+  .nav-link {
+    @apply text-sm font-semibold text-secondary hover:text-primary transition-colors duration-200;
+  }
+
+  .admin-stat-card {
+    @apply bg-card rounded-2xl p-5 border border-border shadow-sm hover:shadow-md transition-shadow;
+  }
+
+  .table-header {
+    @apply bg-muted text-muted-foreground text-xs font-semibold uppercase tracking-wide px-4 py-3;
+  }
+
+  .table-row {
+    @apply border-b border-border hover:bg-muted/30 transition-colors;
+  }
+
+  .sidebar-nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer;
+  }
+
+  .price-tag {
+    @apply text-2xl font-black text-primary;
+    font-family: 'Nunito', sans-serif;
+  }
+
+  .bilao-badge {
+    @apply inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-xs font-black;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* Woven texture overlay */
+.woven-bg {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+}
+
+/* Hero gradient */
+.hero-gradient {
+  background: linear-gradient(135deg, hsl(27 90% 10%) 0%, hsl(27 70% 18%) 50%, hsl(38 80% 20%) 100%);
+}
+
+/* Yellow gradient */
+.yellow-gradient {
+  background: linear-gradient(135deg, hsl(43 96% 56%) 0%, hsl(35 93% 50%) 100%);
+}
+
+/* Animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes pulse-yellow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+}
+
+.pulse-yellow {
+  animation: pulse-yellow 2s infinite;
+}
+
+/* Sticky bottom nav */
+.sticky-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+
+/* Order timeline */
+.timeline-dot {
+  @apply w-4 h-4 rounded-full border-2 border-border bg-card flex-shrink-0;
+}
+.timeline-dot.active {
+  @apply bg-primary border-primary;
+}
+.timeline-dot.completed {
+  @apply bg-green-500 border-green-500;
+}
+.timeline-line {
+  @apply w-0.5 bg-border flex-grow;
+}
+.timeline-line.completed {
+  @apply bg-green-500;
+}
