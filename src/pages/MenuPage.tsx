@@ -5,6 +5,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import MobileNav from '@/components/layout/MobileNav';
 import ProductCard from '@/components/features/ProductCard';
+import TodaysSpecials from '@/components/features/TodaysSpecials';
 import { PRODUCTS as FALLBACK_PRODUCTS, CATEGORIES } from '@/constants/data';
 import { getCentralProducts, subscribeToProductUpdates, areProductsEqual } from '@/lib/inventoryStore';
 import { useEffect } from 'react';
@@ -61,7 +62,7 @@ export default function MenuPage() {
       case 'bestseller': return result.sort((a, b) => (b.bestSeller ? 1 : 0) - (a.bestSeller ? 1 : 0));
       default: return result.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
     }
-  }, [activeCat, searchQuery, sortBy, priceRange]);
+  }, [allProducts, activeCat, searchQuery, sortBy, priceRange]);
 
   const handleCategoryChange = (slug: string) => {
     if (slug === 'all') {
@@ -103,6 +104,13 @@ export default function MenuPage() {
 
       <div className="flex-1 bg-background py-8">
         <div className="container mx-auto px-4">
+          {/* Rotating Daily Discounts & Featured Deals */}
+          {!searchQuery && activeCat === 'all' && (
+            <div className="mb-6 rounded-3xl border border-primary/20 overflow-hidden shadow-sm">
+              <TodaysSpecials maxItems={3} showCountdown={true} />
+            </div>
+          )}
+
           {/* Category tabs */}
           <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 scrollbar-hide">
             <button

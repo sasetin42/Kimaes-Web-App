@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Search, Check, MapPin, Phone, MessageCircle, Star, Truck,
-  Clock, Package, ChefHat, AlertCircle, User, RefreshCw
+  Clock, Package, ChefHat, AlertCircle, User, RefreshCw, MessageSquare, Sparkles
 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import MobileNav from '@/components/layout/MobileNav';
 import OrderStatusBadge from '@/components/features/OrderStatusBadge';
+import CustomerFeedbackModal from '@/components/features/CustomerFeedbackModal';
+import { getFeedbackForOrder } from '@/services/feedbackService';
 import { getOrderById, getOrders, formatPrice } from '@/lib/store';
 import type { Order, OrderStatus } from '@/types';
 
@@ -34,6 +36,7 @@ export default function TrackOrderPage() {
   const [order, setOrder] = useState<Order | null>(id ? getOrderById(id) || null : null);
   const [searchInput, setSearchInput] = useState(id || '');
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -137,7 +140,7 @@ export default function TrackOrderPage() {
                     <AlertCircle size={24} className="text-red-500 flex-shrink-0" />
                     <div>
                       <p className="font-bold text-red-700">Order {order.status.replace('_', ' ')}</p>
-                      <p className="text-sm text-red-600">Please contact us for assistance: 0917-123-4567</p>
+                      <p className="text-sm text-red-600">Please contact us for assistance: 0991 598 4112 / 0961 772 2601</p>
                     </div>
                   </div>
                 ) : (
@@ -260,10 +263,43 @@ export default function TrackOrderPage() {
                   )}
                 </div>
               )}
+
+              {/* Customer Feedback & Rating Banner (Stored in Firebase Firestore) */}
+              <div className="bg-gradient-to-r from-amber-500/10 via-primary/10 to-transparent border border-amber-500/30 rounded-2xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500 text-secondary flex items-center justify-center flex-shrink-0 font-black shadow-sm">
+                    <Star size={24} className="fill-secondary text-secondary" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-base text-foreground" style={{ fontFamily: 'Nunito' }}>
+                      How was your Bilao Feast?
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Share your experience to help us improve and earn <strong>+15 Salo-Salo Loyalty Points</strong> credited to your account!
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setFeedbackModalOpen(true)}
+                  className="btn-primary text-xs px-5 py-2.5 font-black flex items-center gap-1.5 shadow-md flex-shrink-0 self-stretch sm:self-auto justify-center"
+                >
+                  <Star size={14} className="fill-current" />
+                  {getFeedbackForOrder(order.id) || getFeedbackForOrder(order.orderNumber)
+                    ? 'View / Edit Feedback'
+                    : 'Rate Feast & Review'}
+                </button>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Customer Feedback Modal */}
+      <CustomerFeedbackModal
+        isOpen={feedbackModalOpen}
+        onClose={() => setFeedbackModalOpen(false)}
+        order={order}
+      />
 
       <Footer />
       <MobileNav />

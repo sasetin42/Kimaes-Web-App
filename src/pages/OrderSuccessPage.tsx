@@ -109,7 +109,7 @@ export default function OrderSuccessPage() {
 
           <div className="mt-6">
             <p className="text-sm text-muted-foreground">
-              Questions? Call us: <a href="tel:+639171234567" className="text-primary font-semibold">0917-123-4567</a>
+              Questions? Call us: <a href="tel:09915984112" className="text-primary font-semibold">0991 598 4112</a> / <a href="tel:09617722601" className="text-primary font-semibold">0961 772 2601</a>
             </p>
           </div>
         </div>

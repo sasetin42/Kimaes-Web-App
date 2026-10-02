@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ChevronLeft, Star, Clock, Users, ShoppingCart, Plus, Minus,
-  Heart, Share2, ChefHat, Check, AlertCircle, ArrowRight
+  Heart, Share2, ChefHat, Check, AlertCircle, ArrowRight,
+  Zap, Tag, User, ShieldCheck
 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -213,6 +214,28 @@ export default function ProductDetailPage() {
 
               <p className="text-muted-foreground leading-relaxed mb-6">{product.description}</p>
 
+              {/* Item Lifecycle & Staff Metadata */}
+              <div className="mb-5 p-3 rounded-2xl bg-muted/60 border border-border/80 text-xs flex flex-wrap items-center justify-between gap-2.5 text-muted-foreground shadow-sm">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="flex items-center gap-1 font-mono font-medium">
+                    <Tag size={12} className="text-primary" /> SKU: <strong className="text-foreground">{product.sku}</strong>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock size={12} className="text-primary" /> Last Updated: <strong className="text-foreground">{new Date(product.updatedAt || '2026-10-01T12:00:00Z').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</strong>
+                  </span>
+                  <span className="flex items-center gap-1 font-mono">
+                    <User size={12} className="text-primary" /> Creator ID: <strong className="text-foreground">KPB-HQ-01</strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${
+                    product.stock > 10 ? 'bg-emerald-500/10 text-emerald-600' : product.stock > 0 ? 'bg-amber-500/10 text-amber-600' : 'bg-destructive/10 text-destructive'
+                  }`}>
+                    {product.stock > 0 ? `${product.stock} in stock` : 'Out of Stock'}
+                  </span>
+                </div>
+              </div>
+
               {/* Price */}
               <div className="flex items-end gap-3 mb-6">
                 <span className="text-3xl font-black text-primary" style={{ fontFamily: 'Nunito' }}>
@@ -324,21 +347,22 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={handleAddToCart}
                   disabled={!product.available}
-                  className="flex-1 btn-outline flex items-center justify-center gap-2"
+                  className="flex-1 btn-primary py-3.5 flex items-center justify-center gap-2 font-black shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all"
+                  title="Immediately add current selection to your cart without navigating away"
                 >
-                  <ShoppingCart size={18} />
-                  Add to Cart
+                  <Zap size={18} className="fill-secondary text-secondary" />
+                  Quick Add to Cart
                 </button>
                 <button
                   onClick={handleOrderNow}
                   disabled={!product.available}
-                  className="flex-1 btn-primary flex items-center justify-center gap-2"
+                  className="flex-1 btn-outline py-3.5 flex items-center justify-center gap-2 font-bold"
                 >
-                  Order Now <ArrowRight size={18} />
+                  Order Now & Checkout <ArrowRight size={16} />
                 </button>
               </div>
 
@@ -347,6 +371,35 @@ export default function ProductDetailPage() {
                 <AlertCircle size={16} className="text-primary mt-0.5 flex-shrink-0" />
                 <p>Estimated prep time: <strong className="text-foreground">{product.prepTime} minutes</strong>. Delivery within your zone typically takes an additional 30–60 minutes.</p>
               </div>
+            </div>
+          </div>
+
+          {/* Floating Quick Add Interaction Bar */}
+          <div className="fixed bottom-6 right-6 z-40 max-w-sm w-auto animate-in slide-in-from-bottom duration-300">
+            <div className="bg-card/95 backdrop-blur-md border-2 border-primary/50 p-3 rounded-2xl shadow-2xl flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0 pr-1">
+                <img
+                  src={product.images[0]}
+                  alt=""
+                  className="w-10 h-10 rounded-xl object-cover border border-border flex-shrink-0"
+                />
+                <div className="min-w-0">
+                  <p className="font-bold text-xs text-foreground truncate max-w-[130px]">{product.name}</p>
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <span className="font-black text-primary">{formatPrice(totalPrice)}</span>
+                    <span className="text-muted-foreground font-semibold">({quantity}x)</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleAddToCart}
+                disabled={!product.available}
+                className="btn-primary py-2 px-3.5 text-xs font-black flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all flex-shrink-0"
+                title="Immediately add current selection to cart without navigating away"
+              >
+                <Zap size={14} className="fill-secondary text-secondary" />
+                Quick Add
+              </button>
             </div>
           </div>
 

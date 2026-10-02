@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   Search, Barcode, ShoppingCart, Trash2, Plus, Minus, CreditCard,
   Banknote, QrCode, PauseCircle, PlayCircle, RotateCcw,
-  User, Tag, Layers, ArrowLeft, X, ShieldAlert, Sparkles, Check
+  User, Tag, Layers, ArrowLeft, X, ShieldAlert, Sparkles, Check,
+  Clock, FileText, Printer, AlertTriangle, ChevronRight, Utensils
 } from 'lucide-react';
 import {
   getCentralProducts,
@@ -17,6 +18,7 @@ import {
   getHeldOrders,
   holdCurrentOrder,
   removeHeldOrder,
+  deleteHeldOrder,
   voidPOSTransaction,
   getPOSTransactions,
   getActiveShift,
@@ -30,6 +32,7 @@ import type {
   POSPaymentMethodType,
   CustomerProfile,
   POSTransaction,
+  HeldOrder,
 } from '@/types';
 import POSReceiptModal from './POSReceiptModal';
 import { toast } from 'sonner';
@@ -45,6 +48,14 @@ export default function POSRegister() {
   const [orderDiscountType, setOrderDiscountType] = useState<'fixed' | 'percentage'>('fixed');
   const [orderDiscountValue, setOrderDiscountValue] = useState<number>(0);
   const [orderDiscountLabel, setOrderDiscountLabel] = useState('');
+
+  const [heldOrdersList, setHeldOrdersList] = useState<HeldOrder[]>(getHeldOrders());
+  const [showHoldDialog, setShowHoldDialog] = useState(false);
+  const [holdLabelInput, setHoldLabelInput] = useState('');
+  const [holdNotesInput, setHoldNotesInput] = useState('');
+  const [holdOrderType, setHoldOrderType] = useState<'dine_in' | 'takeout' | 'drive_thru'>('takeout');
+  const [heldSearchQuery, setHeldSearchQuery] = useState('');
+  const [isSubmittingHold, setIsSubmittingHold] = useState(false);
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -70,6 +81,16 @@ export default function POSRegister() {
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const activeShift = getActiveShift();
   const cashierName = activeShift?.cashierName || 'Bea Alonzo';
+
+  useEffect(() => {
+    const handleHeldSync = () => {
+      setHeldOrdersList([...getHeldOrders()]);
+    };
+    window.addEventListener('kimae_pos_held_sync', handleHeldSync);
+    return () => {
+      window.removeEventListener('kimae_pos_held_sync', handleHeldSync);
+    };
+  }, []);
 
   useEffect(() => {
     const unsub = subscribeToProductUpdates(() => {
@@ -230,28 +251,69 @@ export default function POSRegister() {
     toast.success(`Applied ${label}`);
   };
 
-  const handleHoldOrder = () => {
+  const handleOpenHoldDialog = () => {
     if (cart.length === 0) {
-      toast.error('Cannot park an empty cart!');
+      toast.error('Cannot hold an empty cart! Please add items to hold.');
       return;
     }
-    const name = prompt('Enter a label for this held ticket (e.g. Table 4 / Juan):');
-    if (name !== null) {
-      holdCurrentOrder(name, cart, selectedCustomer, {
-        type: orderDiscountType,
-        value: orderDiscountValue,
-        label: orderDiscountLabel,
-      });
+    const defaultLabel = selectedCustomer?.name
+      ? `${selectedCustomer.name}`
+      : `Table ${heldOrdersList.length + 1}`;
+    setHoldLabelInput(defaultLabel);
+    setHoldNotesInput('');
+    setHoldOrderType('takeout');
+    setShowHoldDialog(true);
+  };
+
+  const handleConfirmHoldOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!holdLabelInput.trim()) {
+      toast.error('Please enter a ticket label or customer/table identifier.');
+      return;
+    }
+    setIsSubmittingHold(true);
+    try {
+      const held = await holdCurrentOrder(
+        holdLabelInput.trim(),
+        cart,
+        selectedCustomer,
+        {
+          type: orderDiscountType,
+          value: orderDiscountValue,
+          label: orderDiscountLabel,
+        },
+        {
+          notes: holdNotesInput.trim(),
+          orderType: holdOrderType,
+          cashierId: activeShift?.cashierId,
+          cashierName,
+          registerId: activeShift?.registerId,
+        }
+      );
+      setHeldOrdersList([...getHeldOrders()]);
       setCart([]);
       setSelectedCustomer(null);
       setOrderDiscountValue(0);
-      toast.info(`Order parked as "${name || 'Unnamed'}"`);
+      setShowHoldDialog(false);
+      toast.success(`Order held successfully as "${held.holdName}" (#${held.ticketNumber})`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to hold order');
+    } finally {
+      setIsSubmittingHold(false);
     }
   };
 
-  const handleResumeOrder = (heldId: string) => {
-    const resumed = removeHeldOrder(heldId);
+  const handleResumeOrder = async (heldId: string) => {
+    if (cart.length > 0) {
+      const confirmReplace = confirm(
+        'The active cart already has items! Overwrite active cart with this held order?'
+      );
+      if (!confirmReplace) return;
+    }
+
+    const resumed = await removeHeldOrder(heldId);
     if (resumed) {
+      setHeldOrdersList([...getHeldOrders()]);
       setCart(resumed.cart);
       setSelectedCustomer(resumed.customer || null);
       if (resumed.discount) {
@@ -260,9 +322,31 @@ export default function POSRegister() {
         setOrderDiscountLabel(resumed.discount.label || '');
       }
       setShowHeldOrdersModal(false);
-      toast.success(`Resumed order: ${resumed.holdName}`);
+      toast.success(`Restored order: "${resumed.holdName}" (${resumed.cart.length} items)`);
+    } else {
+      toast.error('Could not find held order.');
     }
   };
+
+  const handleDeleteHeldOrder = async (heldId: string, holdName: string) => {
+    if (confirm(`Are you sure you want to discard held order "${holdName}"?`)) {
+      await deleteHeldOrder(heldId);
+      setHeldOrdersList([...getHeldOrders()]);
+      toast.info(`Held order "${holdName}" discarded.`);
+    }
+  };
+
+  const filteredHeldOrders = useMemo(() => {
+    if (!heldSearchQuery.trim()) return heldOrdersList;
+    const q = heldSearchQuery.toLowerCase();
+    return heldOrdersList.filter(
+      (h) =>
+        h.holdName.toLowerCase().includes(q) ||
+        (h.ticketNumber && h.ticketNumber.toLowerCase().includes(q)) ||
+        (h.customer?.name && h.customer.name.toLowerCase().includes(q)) ||
+        (h.notes && h.notes.toLowerCase().includes(q))
+    );
+  }, [heldOrdersList, heldSearchQuery]);
 
   const openPaymentScreen = () => {
     if (cart.length === 0) {
@@ -422,11 +506,11 @@ export default function POSRegister() {
             onClick={() => setShowHeldOrdersModal(true)}
             className="relative px-3 py-1.5 rounded-xl bg-secondary-foreground/10 hover:bg-secondary-foreground/20 text-xs font-semibold flex items-center gap-1.5 transition-colors"
           >
-            <PauseCircle size={15} className="text-amber-400" />
+            <PauseCircle size={15} className={heldOrdersList.length > 0 ? "text-amber-400 animate-pulse" : "text-amber-400"} />
             <span>Held Orders</span>
-            {getHeldOrders().length > 0 && (
-              <span className="w-4 h-4 rounded-full bg-amber-500 text-black text-[10px] font-black flex items-center justify-center">
-                {getHeldOrders().length}
+            {heldOrdersList.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[10px] font-black flex items-center justify-center animate-bounce">
+                {heldOrdersList.length}
               </span>
             )}
           </button>
@@ -651,8 +735,13 @@ export default function POSRegister() {
           </div>
 
           <div className="p-3 border-t border-border bg-muted/40 grid grid-cols-3 gap-2">
-            <button disabled={cart.length === 0} onClick={handleHoldOrder} className="py-2.5 rounded-xl border border-border bg-card font-bold text-xs flex items-center justify-center gap-1 disabled:opacity-40">
-              <PauseCircle size={14} className="text-amber-500" /> Hold
+            <button
+              disabled={cart.length === 0}
+              onClick={handleOpenHoldDialog}
+              title="Park / Hold current cart to serve another customer"
+              className="py-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-40 transition-colors shadow-sm"
+            >
+              <PauseCircle size={15} className="text-amber-500" /> Hold Cart
             </button>
             <button disabled={cart.length === 0} onClick={clearCurrentCart} className="py-2.5 rounded-xl border border-destructive/30 font-bold text-xs text-destructive flex items-center justify-center gap-1 disabled:opacity-40">
               <Trash2 size={14} /> Clear
@@ -808,25 +897,258 @@ export default function POSRegister() {
         </div>
       )}
 
-      {showHeldOrdersModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-card border border-border w-full max-w-lg rounded-2xl shadow-2xl p-5">
+      {/* Modal: Hold Current Cart */}
+      {showHoldDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-card border border-border w-full max-w-md rounded-2xl shadow-2xl p-6">
             <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-              <h3 className="font-black text-base" style={{ fontFamily: 'Nunito' }}>Parked / Held Orders</h3>
-              <button onClick={() => setShowHeldOrdersModal(false)}><X size={18} /></button>
-            </div>
-            <div className="space-y-3 max-h-80 overflow-y-auto">
-              {getHeldOrders().map((held) => (
-                <div key={held.id} className="p-3.5 rounded-xl border border-border flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-xs">{held.holdName}</p>
-                    <p className="text-[10px] text-muted-foreground">{held.cart.length} items</p>
-                  </div>
-                  <button onClick={() => handleResumeOrder(held.id)} className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold">
-                    Resume
-                  </button>
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                  <PauseCircle size={20} />
                 </div>
-              ))}
+                <div>
+                  <h3 className="font-black text-base text-foreground" style={{ fontFamily: 'Nunito' }}>
+                    Hold Order (Park Cart)
+                  </h3>
+                  <p className="text-xs text-muted-foreground">Save cart state to database and retrieve anytime</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowHoldDialog(false)}
+                className="p-1 rounded-lg text-muted-foreground hover:bg-muted"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmHoldOrder} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">
+                  Table / Customer / Ticket Label *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={holdLabelInput}
+                  onChange={(e) => setHoldLabelInput(e.target.value)}
+                  placeholder="e.g. Table 4, Takeout #12, Maria Santos"
+                  className="input-field text-sm"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">Order Type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'dine_in', label: 'Dine In' },
+                    { id: 'takeout', label: 'Takeout' },
+                    { id: 'drive_thru', label: 'Drive-Thru' },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setHoldOrderType(t.id as any)}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-colors ${
+                        holdOrderType === t.id
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1">
+                  Cashier Note / Remarks (Optional)
+                </label>
+                <textarea
+                  value={holdNotesInput}
+                  onChange={(e) => setHoldNotesInput(e.target.value)}
+                  placeholder="e.g. Customer withdrawing cash, will add drinks upon return"
+                  rows={2}
+                  className="input-field text-xs resize-none"
+                />
+              </div>
+
+              {/* Cart Summary Box */}
+              <div className="bg-muted/40 rounded-xl p-3 border border-border text-xs space-y-1">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Items to park:</span>
+                  <span className="font-semibold text-foreground">
+                    {cart.reduce((s, i) => s + i.quantity, 0)} items ({cart.length} unique)
+                  </span>
+                </div>
+                {selectedCustomer && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Customer:</span>
+                    <span className="font-semibold text-foreground">{selectedCustomer.name}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-muted-foreground border-t border-border pt-1">
+                  <span>Total Amount:</span>
+                  <span className="font-black text-primary text-sm">{formatPrice(totalAmount)}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowHoldDialog(false)}
+                  className="w-1/2 py-2.5 rounded-xl border border-border text-xs font-bold hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingHold}
+                  className="w-1/2 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-black text-xs font-black shadow-md flex items-center justify-center gap-1.5"
+                >
+                  <PauseCircle size={15} />
+                  {isSubmittingHold ? 'Saving...' : 'Confirm Hold'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: View & Resume Held Orders */}
+      {showHeldOrdersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-card border border-border w-full max-w-2xl rounded-2xl shadow-2xl p-5 flex flex-col max-h-[88vh]">
+            <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
+              <div className="flex items-center gap-2">
+                <PauseCircle className="text-amber-500" size={20} />
+                <div>
+                  <h3 className="font-black text-base text-foreground" style={{ fontFamily: 'Nunito' }}>
+                    Parked / Held Orders ({heldOrdersList.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Retrieve active tickets for waiting customers or tables
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowHeldOrdersModal(false)}
+                className="p-1 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Search filter */}
+            <div className="relative mb-3">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={heldSearchQuery}
+                onChange={(e) => setHeldSearchQuery(e.target.value)}
+                placeholder="Search held orders by ticket, table name, customer..."
+                className="w-full pl-9 pr-3 py-2 bg-muted/40 border border-border rounded-xl text-xs focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {filteredHeldOrders.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground space-y-2">
+                  <PauseCircle size={36} className="mx-auto text-muted-foreground/40" />
+                  <p className="text-sm font-semibold">No held orders found</p>
+                  <p className="text-xs text-muted-foreground/70 max-w-xs mx-auto">
+                    When customers need time or step aside, use "Hold Cart" in the register to park their order here.
+                  </p>
+                </div>
+              ) : (
+                filteredHeldOrders.map((held) => {
+                  const heldDate = new Date(held.heldAt);
+                  const minutesAgo = Math.max(0, Math.floor((Date.now() - heldDate.getTime()) / 60000));
+                  const timeLabel = minutesAgo === 0 ? 'Just now' : `${minutesAgo}m ago`;
+
+                  return (
+                    <div
+                      key={held.id}
+                      className="p-4 rounded-2xl border border-border bg-card hover:border-primary/50 transition-all shadow-sm space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-sm text-foreground">{held.holdName}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                              {held.orderType || 'takeout'}
+                            </span>
+                            {held.ticketNumber && (
+                              <span className="text-[10px] font-mono text-muted-foreground">
+                                #{held.ticketNumber}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
+                            <span className="flex items-center gap-1">
+                              <Clock size={12} /> Held {timeLabel} ({heldDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                            </span>
+                            {held.customer?.name && (
+                              <span className="flex items-center gap-1 font-semibold text-foreground">
+                                <User size={12} /> {held.customer.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <span
+                            className="font-black text-base text-primary block"
+                            style={{ fontFamily: 'Nunito' }}
+                          >
+                            {formatPrice(held.totalAmount)}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {held.itemCount || held.cart.reduce((s, i) => s + i.quantity, 0)} items
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Items preview */}
+                      <div className="bg-muted/30 rounded-xl p-2.5 text-xs border border-border/50">
+                        <div className="flex flex-wrap gap-1.5">
+                          {held.cart.map((itm, i) => (
+                            <span
+                              key={i}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border border-border text-[11px]"
+                            >
+                              <strong className="text-primary">{itm.quantity}x</strong> {itm.product.name}
+                            </span>
+                          ))}
+                        </div>
+                        {held.notes && (
+                          <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium italic mt-2 border-t border-border/50 pt-1.5">
+                            Note: {held.notes}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center justify-between pt-1">
+                        <button
+                          onClick={() => handleDeleteHeldOrder(held.id, held.holdName)}
+                          className="px-3 py-1.5 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-bold transition-colors flex items-center gap-1"
+                        >
+                          <Trash2 size={13} /> Discard
+                        </button>
+
+                        <button
+                          onClick={() => handleResumeOrder(held.id)}
+                          className="px-4 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-black hover:bg-brand-yellow-dark shadow-sm transition-all flex items-center gap-1.5 active:scale-95"
+                        >
+                          <PlayCircle size={14} /> Resume Cart
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
@@ -840,24 +1162,78 @@ export default function POSRegister() {
               <button onClick={() => setShowRecentSalesModal(false)}><X size={18} /></button>
             </div>
             <div className="flex-1 overflow-y-auto space-y-2.5">
-              {getPOSTransactions().map((tx) => (
-                <div key={tx.id} className="p-3 rounded-xl border border-border flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-xs">{tx.ticketNumber}</span>
-                    <p className="text-xs font-black text-primary">{formatPrice(tx.totalAmount)}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => { setCompletedTx(tx); setShowReceiptModal(true); }} className="px-2.5 py-1.5 rounded-lg border text-xs font-bold">
-                      Receipt
-                    </button>
-                    {tx.status === 'completed' && (
-                      <button onClick={() => { setVoidTargetTx(tx); setShowVoidModal(true); }} className="px-2.5 py-1.5 rounded-lg bg-destructive/10 text-destructive text-xs font-bold">
-                        Void
-                      </button>
-                    )}
-                  </div>
+              {getPOSTransactions().length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-xs">
+                  No past transactions found for this session.
                 </div>
-              ))}
+              ) : (
+                getPOSTransactions().map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="p-3.5 rounded-xl border border-border bg-card hover:border-primary/40 transition-colors flex items-center justify-between gap-3"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-foreground">{tx.ticketNumber}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          ({tx.receiptNumber})
+                        </span>
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                            tx.status === 'completed'
+                              ? 'bg-emerald-500/10 text-emerald-600'
+                              : 'bg-destructive/10 text-destructive'
+                          }`}
+                        >
+                          {tx.status}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {new Date(tx.createdAt).toLocaleDateString()} • {new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Cashier: {tx.cashierName}
+                      </p>
+                      {tx.customer?.name && (
+                        <p className="text-[11px] font-semibold text-foreground">
+                          Customer: {tx.customer.name}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-sm font-black text-primary" style={{ fontFamily: 'Nunito' }}>
+                          {formatPrice(tx.totalAmount)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {tx.items.length} items
+                        </p>
+                      </div>
+
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => {
+                            setCompletedTx(tx);
+                            setShowReceiptModal(true);
+                          }}
+                          className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-primary hover:text-primary-foreground text-xs font-bold transition-colors flex items-center gap-1 shadow-sm"
+                        >
+                          <Printer size={13} /> Print
+                        </button>
+                        {tx.status === 'completed' && (
+                          <button
+                            onClick={() => {
+                              setVoidTargetTx(tx);
+                              setShowVoidModal(true);
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-bold transition-colors"
+                          >
+                            Void
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

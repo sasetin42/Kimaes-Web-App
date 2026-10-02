@@ -8,11 +8,13 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import MobileNav from '@/components/layout/MobileNav';
 import ProductCard from '@/components/features/ProductCard';
+import TodaysSpecials from '@/components/features/TodaysSpecials';
 import { PRODUCTS as FALLBACK_PRODUCTS, CATEGORIES, SAMPLE_REVIEWS } from '@/constants/data';
 import { useCart } from '@/hooks/useCart';
 import { formatPrice } from '@/lib/store';
 import { getCentralProducts, subscribeToProductUpdates, areProductsEqual } from '@/lib/inventoryStore';
-import type { Product } from '@/types';
+import { subscribeToCustomerFeedback } from '@/services/feedbackService';
+import type { Product, CustomerFeedback } from '@/types';
 import heroImg from '@/assets/hero-bilao.jpg';
 import bilaoSpread from '@/assets/bilao-spread.jpg';
 import aboutBanner from '@/assets/about-banner.jpg';
@@ -23,6 +25,7 @@ export default function Index() {
   const { addToCart } = useCart();
   const navigate = useNavigate();
   const [allProducts, setAllProducts] = useState(getCentralProducts());
+  const [liveFeedbacks, setLiveFeedbacks] = useState<CustomerFeedback[]>([]);
 
   useEffect(() => {
     const unsub = subscribeToProductUpdates(() => {
@@ -32,6 +35,13 @@ export default function Index() {
       });
     });
     return unsub;
+  }, []);
+
+  useEffect(() => {
+    const unsubFeedback = subscribeToCustomerFeedback((list) => {
+      setLiveFeedbacks(list);
+    });
+    return unsubFeedback;
   }, []);
 
   const featured = useMemo(() => allProducts.filter(p => p.featured), [allProducts]);
@@ -54,7 +64,7 @@ export default function Index() {
     { icon: <ShieldCheck size={28} className="text-primary" />, title: 'Fresh Ingredients', desc: 'We use only the freshest, quality ingredients in every bilao.' },
     { icon: <Clock size={28} className="text-primary" />, title: 'On-Time Delivery', desc: 'We respect your event time. Punctual delivery, always.' },
     { icon: <Users size={28} className="text-primary" />, title: 'Perfect for Any Crowd', desc: 'From intimate family dinners to large barangay fiestas.' },
-    { icon: <Truck size={28} className="text-primary" />, title: 'Wide Delivery Area', desc: 'Caloocan, Malabon, Navotas, Valenzuela and more.' },
+    { icon: <Truck size={28} className="text-primary" />, title: 'Wide Delivery Area', desc: 'Dasmariñas, Cavite and coordinated delivery & pickup locations.' },
   ];
 
   return (
@@ -128,6 +138,9 @@ export default function Index() {
           </div>
         </div>
       </section>
+
+      {/* Rotating Daily Discounts & Featured Deals */}
+      <TodaysSpecials />
 
       {/* Featured Products */}
       <section className="py-12 bg-background">
@@ -251,26 +264,81 @@ export default function Index() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {SAMPLE_REVIEWS.slice(0, 6).map(review => (
-              <div key={review.id} className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-warm transition-shadow">
-                <div className="flex items-center gap-1 mb-3">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={14} className={i < review.rating ? 'fill-primary text-primary' : 'text-muted'} />
-                  ))}
-                </div>
-                <Quote size={18} className="text-primary/30 mb-2" />
-                <p className="text-sm text-muted-foreground leading-relaxed mb-4">"{review.comment}"</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm">
-                    {review.customerName.charAt(0)}
-                  </div>
+            {(liveFeedbacks.length > 0
+              ? [
+                  ...liveFeedbacks.map((f) => ({
+                    id: f.id,
+                    rating: f.rating,
+                    comment: f.reviewText,
+                    customerName: f.customerName,
+                    createdAt: f.createdAt,
+                    tags: f.tags,
+                    orderItems: f.orderItems,
+                    verified: true,
+                  })),
+                  ...SAMPLE_REVIEWS.filter(
+                    (s) => !liveFeedbacks.some((lf) => lf.customerName === s.customerName)
+                  ),
+                ]
+              : SAMPLE_REVIEWS
+            )
+              .slice(0, 6)
+              .map((review: any) => (
+                <div
+                  key={review.id}
+                  className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-warm transition-shadow flex flex-col justify-between"
+                >
                   <div>
-                    <p className="font-bold text-sm text-foreground">{review.customerName}</p>
-                    <p className="text-xs text-muted-foreground">{new Date(review.createdAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            size={14}
+                            className={i < review.rating ? 'fill-primary text-primary' : 'text-muted'}
+                          />
+                        ))}
+                      </div>
+                      {review.verified && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-bold border border-emerald-500/20">
+                          ✓ Verified Feast
+                        </span>
+                      )}
+                    </div>
+                    <Quote size={18} className="text-primary/30 mb-2" />
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                      "{review.comment}"
+                    </p>
+                    {review.tags && review.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-4">
+                        {review.tags.slice(0, 3).map((tag: string, tIdx: number) => (
+                          <span
+                            key={tIdx}
+                            className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 pt-3 border-t border-border/60">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm shadow-inner">
+                      {review.customerName.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-foreground">{review.customerName}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {new Date(review.createdAt).toLocaleDateString('en-PH', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       </section>

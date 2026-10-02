@@ -6,6 +6,7 @@ import type {
   POSPaymentSplit,
   POSTicketStatus,
   Product,
+  HeldOrder,
 } from '@/types';
 import {
   subscribeToPOSTransactions,
@@ -15,6 +16,9 @@ import {
   openShiftInFirestore,
   closeShiftInFirestore,
   CheckoutSalePayload,
+  saveHeldOrderInFirestore,
+  deleteHeldOrderInFirestore,
+  subscribeToHeldOrders,
 } from '@/services/posService';
 import { getCentralProducts } from './inventoryStore';
 
@@ -38,12 +42,30 @@ export const INITIAL_SHIFTS: POSRegisterShift[] = [
 
 export const INITIAL_POS_TRANSACTIONS: POSTransaction[] = [];
 
+const HELD_ORDERS_STORAGE_KEY = 'kimae_pos_held_orders';
+
+const loadLocalHeldOrders = (): HeldOrder[] => {
+  try {
+    const raw = localStorage.getItem(HELD_ORDERS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const persistLocalHeldOrders = (orders: HeldOrder[]) => {
+  try {
+    localStorage.setItem(HELD_ORDERS_STORAGE_KEY, JSON.stringify(orders));
+  } catch {}
+};
+
 let cachedTransactions: POSTransaction[] = [];
 let cachedShifts: POSRegisterShift[] = INITIAL_SHIFTS;
-let heldOrdersInMemory: HeldOrder[] = [];
+let heldOrdersInMemory: HeldOrder[] = loadLocalHeldOrders();
 
 let unsubPosTx: (() => void) | null = null;
 let unsubPosShifts: (() => void) | null = null;
+let unsubPosHeld: (() => void) | null = null;
 
 const setupPOSListeners = () => {
   if (typeof window === 'undefined') return;
@@ -55,6 +77,10 @@ const setupPOSListeners = () => {
     unsubPosShifts();
     unsubPosShifts = null;
   }
+  if (unsubPosHeld) {
+    unsubPosHeld();
+    unsubPosHeld = null;
+  }
 
   unsubPosTx = subscribeToPOSTransactions((txs) => {
     cachedTransactions = txs;
@@ -65,6 +91,16 @@ const setupPOSListeners = () => {
 
   unsubPosShifts = subscribeToPOSShifts((shifts) => {
     cachedShifts = shifts;
+  });
+
+  unsubPosHeld = subscribeToHeldOrders((orders) => {
+    if (orders && orders.length > 0) {
+      heldOrdersInMemory = orders;
+      persistLocalHeldOrders(orders);
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('kimae_pos_held_sync'));
+    }
   });
 };
 
@@ -110,48 +146,103 @@ export const voidPOSTransaction = async (
   return await voidPOSTransactionInFirestore(transactionId, voidReason, managerName);
 };
 
-export interface HeldOrder {
-  id: string;
-  holdName: string;
-  cart: POSCartItem[];
-  customer?: any;
-  discount: { type: 'fixed' | 'percentage'; value: number; label?: string };
-  heldAt: string;
-}
-
 export const getHeldOrders = (): HeldOrder[] => {
   return heldOrdersInMemory;
 };
 
 export const saveHeldOrders = (orders: HeldOrder[]) => {
   heldOrdersInMemory = orders;
+  persistLocalHeldOrders(orders);
 };
 
-export const holdCurrentOrder = (
+export const holdCurrentOrder = async (
   holdName: string,
   cart: POSCartItem[],
   customer: any,
-  discount: any
-) => {
+  discount: { type: 'fixed' | 'percentage'; value: number; label?: string },
+  options?: {
+    notes?: string;
+    cashierId?: string;
+    cashierName?: string;
+    registerId?: string;
+    orderType?: 'dine_in' | 'takeout' | 'drive_thru';
+    tableNumber?: string;
+  }
+): Promise<HeldOrder> => {
+  const subtotal = cart.reduce((sum, item) => sum + item.lineTotal, 0);
+  const discountAmount =
+    discount.value <= 0
+      ? 0
+      : discount.type === 'percentage'
+      ? Math.round((subtotal * discount.value) / 100)
+      : Math.min(subtotal, discount.value);
+  const totalAmount = Math.max(0, subtotal - discountAmount);
+  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
   const entry: HeldOrder = {
-    id: `hold-${Date.now()}`,
-    holdName: holdName || `Table / Customer ${heldOrdersInMemory.length + 1}`,
+    id: `hold-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    holdName: holdName || `Order Hold #${heldOrdersInMemory.length + 1}`,
+    ticketNumber: `HOLD-${Math.floor(1000 + Math.random() * 9000)}`,
+    cashierId: options?.cashierId,
+    cashierName: options?.cashierName,
+    registerId: options?.registerId,
     cart,
     customer,
     discount,
+    notes: options?.notes || '',
+    itemCount,
+    subtotal,
+    discountAmount,
+    totalAmount,
     heldAt: new Date().toISOString(),
+    orderType: options?.orderType || 'takeout',
+    tableNumber: options?.tableNumber,
   };
-  heldOrdersInMemory.push(entry);
+
+  heldOrdersInMemory = [entry, ...heldOrdersInMemory];
+  persistLocalHeldOrders(heldOrdersInMemory);
+
+  // Sync to database
+  await saveHeldOrderInFirestore(entry);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('kimae_pos_held_sync'));
+  }
+
   return entry;
 };
 
-export const removeHeldOrder = (holdId: string): HeldOrder | undefined => {
-  const idx = heldOrdersInMemory.findIndex((h) => h.id === holdId);
-  if (idx >= 0) {
-    const [removed] = heldOrdersInMemory.splice(idx, 1);
-    return removed;
+export const removeHeldOrder = async (holdId: string): Promise<HeldOrder | undefined> => {
+  const target = heldOrdersInMemory.find((h) => h.id === holdId);
+  if (!target) return undefined;
+
+  heldOrdersInMemory = heldOrdersInMemory.filter((h) => h.id !== holdId);
+  persistLocalHeldOrders(heldOrdersInMemory);
+
+  // Delete from database
+  await deleteHeldOrderInFirestore(holdId);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('kimae_pos_held_sync'));
   }
-  return undefined;
+
+  return target;
+};
+
+export const deleteHeldOrder = async (holdId: string): Promise<boolean> => {
+  const found = heldOrdersInMemory.some((h) => h.id === holdId);
+  if (!found) return false;
+
+  heldOrdersInMemory = heldOrdersInMemory.filter((h) => h.id !== holdId);
+  persistLocalHeldOrders(heldOrdersInMemory);
+
+  await deleteHeldOrderInFirestore(holdId);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('kimae_pos_held_sync'));
+  }
+
+  return true;
 };
 
 export const getPOSShifts = (): POSRegisterShift[] => {

@@ -17,6 +17,9 @@ import { db, auth } from '@/lib/firebase';
 import type { Order, OrderStatus, OrderTimeline } from '@/types';
 import { SAMPLE_ORDERS } from '@/constants/data';
 import { isStaffUser, hasFirestoreStaffAccess } from '@/services/authService';
+import { sendOrderStatusPushNotification } from '@/lib/pushNotifications';
+import { awardOrderPointsAfterPayment } from '@/lib/loyaltyStore';
+import { trackOrderAndAwardLoyaltyPoints } from '@/services/firebaseLoyaltyService';
 
 const ORDERS_COLLECTION = 'orders';
 const PRODUCTS_COLLECTION = 'products';
@@ -221,6 +224,38 @@ export async function updateOrderStatus(
     timeline: [...currentTimeline, timelineEntry],
     updatedAt: serverTimestamp(),
   });
+
+  // 1. Service Worker Push Notification for Out for Delivery / Ready for Pickup
+  if (['out_for_delivery', 'ready', 'completed'].includes(newStatus)) {
+    sendOrderStatusPushNotification(
+      orderData.orderNumber || orderId,
+      newStatus,
+      orderData.deliveryMethod || 'delivery'
+    );
+  }
+
+  // 2. Automatic Salo-Salo Rewards Point Credit when order reaches completed/paid
+  if (newStatus === 'completed') {
+    awardOrderPointsAfterPayment({
+      orderId,
+      orderNumber: orderData.orderNumber || orderId,
+      customerName: orderData.customer?.name || 'Customer',
+      customerMobile: orderData.customer?.mobile || '',
+      customerEmail: orderData.customer?.email,
+      totalPaid: Number(orderData.total) || 0,
+      sourceChannel: 'online',
+    });
+
+    // Also persist directly into user's profile in Firebase Firestore
+    const custId = orderData.customer?.id || orderData.customer?.email || 'customer@gmail.com';
+    trackOrderAndAwardLoyaltyPoints(custId, {
+      orderId,
+      orderNumber: orderData.orderNumber || orderId,
+      totalAmount: Number(orderData.total) || 0,
+      pointsRedeemed: Number(orderData.discount) > 0 ? Math.round(Number(orderData.discount) / 2) : 0,
+      discountApplied: Number(orderData.discount) || 0,
+    }).catch(() => {});
+  }
 }
 
 /**

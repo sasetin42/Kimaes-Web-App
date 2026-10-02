@@ -10,7 +10,8 @@ import {
   query,
   orderBy,
   serverTimestamp,
-  runTransaction
+  runTransaction,
+  deleteDoc
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import type {
@@ -18,16 +19,19 @@ import type {
   POSRegisterShift,
   POSCartItem,
   POSPaymentSplit,
-  Product
+  Product,
+  HeldOrder
 } from '@/types';
 import { INITIAL_SHIFTS, INITIAL_POS_TRANSACTIONS } from '@/constants/seedData';
 import { isStaffUser, hasFirestoreStaffAccess } from '@/services/authService';
+import { awardOrderPointsAfterPayment } from '@/lib/loyaltyStore';
 
 const TXS_COL = 'pos_transactions';
 const SHIFTS_COL = 'pos_shifts';
 const PRODUCTS_COL = 'products';
 const MOVEMENTS_COL = 'inventory_movements';
 const CUSTOMERS_COL = 'customer_profiles';
+const HELD_ORDERS_COL = 'pos_held_orders';
 
 export interface CheckoutSalePayload {
   cashierId: string;
@@ -201,6 +205,18 @@ export async function executePOSSaleInFirestore(
       return newTx;
     });
 
+    if (result && payload.customer) {
+      awardOrderPointsAfterPayment({
+        orderId: result.id,
+        orderNumber: result.ticketNumber,
+        customerName: payload.customer.name,
+        customerMobile: payload.customer.mobile || '',
+        customerEmail: payload.customer.email,
+        totalPaid: payload.totalAmount,
+        sourceChannel: 'pos',
+      });
+    }
+
     return { success: true, transaction: result };
   } catch (err: any) {
     return { success: false, error: err.message || 'Transaction failed' };
@@ -319,3 +335,55 @@ export async function seedPOSShiftsIfEmpty() {
     }
   } catch {}
 }
+
+/**
+ * Saves a held/parked order to Firestore pos_held_orders
+ */
+export async function saveHeldOrderInFirestore(heldOrder: HeldOrder): Promise<void> {
+  try {
+    const docRef = doc(db, HELD_ORDERS_COL, heldOrder.id);
+    await setDoc(docRef, {
+      ...heldOrder,
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    console.warn('Failed to save held order to Firestore, saved to local cache:', err);
+  }
+}
+
+/**
+ * Removes a held order from Firestore upon resume or delete
+ */
+export async function deleteHeldOrderInFirestore(heldId: string): Promise<void> {
+  try {
+    const docRef = doc(db, HELD_ORDERS_COL, heldId);
+    await deleteDoc(docRef);
+  } catch (err) {
+    console.warn('Failed to delete held order from Firestore:', err);
+  }
+}
+
+/**
+ * Real-time listener for held orders in Firestore
+ */
+export function subscribeToHeldOrders(callback: (orders: HeldOrder[]) => void): () => void {
+  if (!hasFirestoreStaffAccess()) {
+    return () => {};
+  }
+  const q = query(collection(db, HELD_ORDERS_COL), orderBy('heldAt', 'desc'));
+  return onSnapshot(q, (snap) => {
+    const list: HeldOrder[] = [];
+    snap.forEach((d) => {
+      const data = d.data();
+      list.push({
+        id: d.id,
+        ...data,
+      } as HeldOrder);
+    });
+    callback(list);
+  }, (err) => {
+    console.warn('Held orders snapshot error:', err);
+  });
+}
+

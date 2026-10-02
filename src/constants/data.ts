@@ -403,10 +403,10 @@ export const PAYMENT_METHODS: PaymentMethod[] = [
 ];
 
 export const DELIVERY_ZONES: DeliveryZone[] = [
-  { id: 'z-1', name: 'Zone 1 – Local (Within City)', barangay: 'All', city: 'Caloocan', province: 'Metro Manila', deliveryFee: 80, minOrder: 500, maxDistance: 5, estimatedTime: 30, freeDeliveryThreshold: 2000, active: true },
-  { id: 'z-2', name: 'Zone 2 – Near City', barangay: 'All', city: 'Malabon', province: 'Metro Manila', deliveryFee: 120, minOrder: 800, maxDistance: 10, estimatedTime: 45, freeDeliveryThreshold: 3000, active: true },
-  { id: 'z-3', name: 'Zone 3 – Extended Area', barangay: 'All', city: 'Navotas', province: 'Metro Manila', deliveryFee: 150, minOrder: 1000, maxDistance: 15, estimatedTime: 60, active: true },
-  { id: 'z-4', name: 'Zone 4 – Far Area', barangay: 'All', city: 'Valenzuela', province: 'Metro Manila', deliveryFee: 200, minOrder: 1500, maxDistance: 20, estimatedTime: 75, active: true },
+  { id: 'z-1', name: 'Zone 1 – Dasmariñas (Local City)', barangay: 'All', city: 'Dasmariñas', province: 'Cavite', deliveryFee: 80, minOrder: 500, maxDistance: 5, estimatedTime: 30, freeDeliveryThreshold: 2000, active: true },
+  { id: 'z-2', name: 'Zone 2 – Imus & Bacoor', barangay: 'All', city: 'Imus / Bacoor', province: 'Cavite', deliveryFee: 120, minOrder: 800, maxDistance: 12, estimatedTime: 45, freeDeliveryThreshold: 3000, active: true },
+  { id: 'z-3', name: 'Zone 3 – Silang & General Trias', barangay: 'All', city: 'Silang / GenTri', province: 'Cavite', deliveryFee: 150, minOrder: 1000, maxDistance: 18, estimatedTime: 60, active: true },
+  { id: 'z-4', name: 'Zone 4 – Tagaytay & Southern Metro', barangay: 'All', city: 'Tagaytay / Metro South', province: 'Cavite / NCR', deliveryFee: 220, minOrder: 1500, maxDistance: 30, estimatedTime: 75, active: true },
 ];
 
 export const BUSINESS_HOURS: BusinessHours[] = [
@@ -427,7 +427,7 @@ export const PROMO_CODES: PromoCode[] = [
 
 export const SAMPLE_REVIEWS: Review[] = [
   { id: 'r-1', orderId: 'ord-1', customerId: 'u-1', customerName: 'Maria Santos', rating: 5, comment: 'Sobrang sarap! The bilao was perfect for our family reunion. Will definitely order again! 😍', createdAt: '2026-08-15' },
-  { id: 'r-2', orderId: 'ord-2', customerId: 'u-2', customerName: 'Juan dela Cruz', rating: 5, comment: "Best party bilao in Caloocan! Fresh ingredients, generous portions, and the delivery was on time. Highly recommend Kimae's!", createdAt: '2026-08-10' },
+  { id: 'r-2', orderId: 'ord-2', customerId: 'u-2', customerName: 'Juan dela Cruz', rating: 5, comment: "Best party bilao in Cavite! Fresh ingredients, generous portions, and the delivery was on time. Highly recommend Kimae's!", createdAt: '2026-08-10' },
   { id: 'r-3', orderId: 'ord-3', customerId: 'u-3', customerName: 'Ana Reyes', rating: 5, comment: 'Ordered the complete party package for my daughter\'s birthday. Everyone loved it! The lechon kawali was extra crispy. 🎉', createdAt: '2026-08-08' },
   { id: 'r-4', orderId: 'ord-4', customerId: 'u-4', customerName: 'Pedro Ramos', rating: 4, comment: 'Masarap at sulit! The kare-kare was so rich and creamy. Only minus 1 star because delivery was slightly delayed but the food was worth the wait.', createdAt: '2026-08-05' },
   { id: 'r-5', orderId: 'ord-5', customerId: 'u-5', customerName: 'Luz Garcia', rating: 5, comment: 'Perfect for our barangay fiesta! Ordered 3 party packages and everything was excellent. Kimae talaga ang best! 🌟', createdAt: '2026-08-01' },
@@ -467,13 +467,13 @@ export const SAMPLE_ORDERS: Order[] = [
     deliveryAddress: {
       id: 'addr-1',
       label: 'Home',
-      fullAddress: '123 Rizal Ave, Barangay 10, Caloocan City, Metro Manila 1400',
-      house: '123',
-      street: 'Rizal Ave',
-      barangay: 'Barangay 10',
-      city: 'Caloocan',
-      province: 'Metro Manila',
-      postalCode: '1400',
+      fullAddress: 'BLK 31 LOT 14 PUROK 3, Victoria Reyes, Dasmariñas, Cavite 4114',
+      house: 'BLK 31 LOT 14',
+      street: 'Purok 3, Victoria Reyes',
+      barangay: 'Victoria Reyes',
+      city: 'Dasmariñas',
+      province: 'Cavite',
+      postalCode: '4114',
       landmark: 'Near Jollibee',
       isDefault: true,
     },

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   ShoppingCart, Menu, X, User, Search, Bell, MapPin,
-  ChevronDown, LogOut, Settings, Package, Heart
+  ChevronDown, LogOut, Settings, Package, Heart, Award
 } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
@@ -64,14 +64,14 @@ export default function Header() {
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1">
-              <MapPin size={12} />
-              Serving Caloocan, Malabon, Navotas & nearby areas
+              <MapPin size={12} className="text-primary" />
+              BLK 31 LOT 14 PUROK 3, Victoria Reyes, Dasmariñas, Cavite
             </span>
-            <span>📞 0917-123-4567</span>
+            <span>📞 0991 598 4112 / 0961 772 2601</span>
           </div>
           <div className="flex items-center gap-4">
             <span>Mon–Sun: 7:00 AM – 9:00 PM</span>
-            <span className="text-primary font-semibold">🎉 Use code PARTY10 for 10% off!</span>
+            <span className="text-primary font-semibold">🎉 Good Food. Happy Family. Your Partner for Every Occasion!</span>
           </div>
         </div>
       </div>
@@ -169,6 +169,10 @@ export default function Header() {
                         </Link>
                         {user.role === 'customer' && (
                           <>
+                            <Link to="/account" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors">
+                              <Award size={16} className="text-amber-500" />
+                              <span className="font-semibold text-foreground">Suki Loyalty Rewards</span>
+                            </Link>
                             <Link to="/account/orders" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors">
                               <Package size={16} className="text-primary" />
                               <span>My Orders</span>

@@ -6,13 +6,15 @@ import {
 } from '@/lib/inventoryStore';
 import {
   Plus, Search, Building2, Phone, Mail, MapPin, Clock, FileText,
-  Edit2, Check, X, ExternalLink
+  Edit2, Check, X, ExternalLink, BarChart3, TrendingUp, Layers
 } from 'lucide-react';
+import SupplierPerformanceDashboard from '@/components/features/SupplierPerformanceDashboard';
 import type { Supplier } from '@/types';
 import { toast } from 'sonner';
 
 export default function AdminSuppliers() {
   const [suppliers, setSuppliers] = useState<Supplier[]>(getSuppliers());
+  const [activeTab, setActiveTab] = useState<'performance' | 'directory'>('performance');
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -89,79 +91,121 @@ export default function AdminSuppliers() {
   };
 
   return (
-    <AdminLayout title="Supplier Directory & Vendors">
+    <AdminLayout title="Suppliers & Performance Analytics">
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search vendor, code, contact person..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+        {/* Module Header & Tab Navigation */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => setActiveTab('performance')}
+              className={`text-sm font-bold pb-2 border-b-2 flex items-center gap-2 transition-colors ${
+                activeTab === 'performance'
+                  ? 'border-primary text-primary font-black'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <BarChart3 size={17} /> Supplier Performance Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab('directory')}
+              className={`text-sm font-bold pb-2 border-b-2 flex items-center gap-2 transition-colors ${
+                activeTab === 'directory'
+                  ? 'border-primary text-primary font-black'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Building2 size={17} /> Vendor Directory & Contracts ({suppliers.length})
+            </button>
           </div>
 
           <button
             onClick={openAdd}
-            className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-black text-xs hover:bg-brand-yellow-dark transition-colors flex items-center gap-1.5 shadow-sm"
+            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-black text-xs hover:bg-brand-yellow-dark transition-colors flex items-center gap-1.5 shadow-sm self-start sm:self-auto shrink-0"
           >
             <Plus size={16} /> Register New Supplier
           </button>
         </div>
 
-        {/* Suppliers Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((s) => (
-            <div
-              key={s.id}
-              className="bg-card rounded-2xl border border-border p-5 hover:border-primary transition-all shadow-sm flex flex-col justify-between gap-4"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2 mb-2">
+        {/* TAB 1: SUPPLIER PERFORMANCE DASHBOARD (Recharts Visualization) */}
+        {activeTab === 'performance' && (
+          <SupplierPerformanceDashboard
+            suppliers={suppliers}
+            onSelectSupplierForEdit={openEdit}
+          />
+        )}
+
+        {/* TAB 2: VENDOR DIRECTORY */}
+        {activeTab === 'directory' && (
+          <div className="space-y-6">
+            {/* Header Search */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search vendor, code, contact person..."
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Showing {filtered.length} of {suppliers.length} active commissary vendors
+              </span>
+            </div>
+
+            {/* Suppliers Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filtered.map((s) => (
+                <div
+                  key={s.id}
+                  className="bg-card rounded-2xl border border-border p-5 hover:border-primary transition-all shadow-sm flex flex-col justify-between gap-4"
+                >
                   <div>
-                    <h3 className="font-bold text-sm text-foreground">{s.name}</h3>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-bold">
-                      {s.code}
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <h3 className="font-bold text-sm text-foreground">{s.name}</h3>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-bold">
+                          {s.code}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => openEdit(s)}
+                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs text-muted-foreground mt-3">
+                      <p className="flex items-center gap-2 text-foreground font-medium">
+                        <Building2 size={13} className="text-primary" /> {s.contactPerson}
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <Phone size={13} /> {s.phone}
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <Mail size={13} /> {s.email}
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <MapPin size={13} /> <span className="truncate">{s.address}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-border flex items-center justify-between text-[11px]">
+                    <span className="text-muted-foreground">
+                      Terms: <strong className="text-foreground">{s.paymentTerms}</strong>
+                    </span>
+                    <span className="text-muted-foreground">
+                      Lead Time: <strong className="text-foreground">{s.leadTimeDays} days</strong>
                     </span>
                   </div>
-                  <button
-                    onClick={() => openEdit(s)}
-                    className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <Edit2 size={14} />
-                  </button>
                 </div>
-
-                <div className="space-y-1.5 text-xs text-muted-foreground mt-3">
-                  <p className="flex items-center gap-2 text-foreground font-medium">
-                    <Building2 size={13} className="text-primary" /> {s.contactPerson}
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <Phone size={13} /> {s.phone}
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <Mail size={13} /> {s.email}
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <MapPin size={13} /> <span className="truncate">{s.address}</span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-border flex items-center justify-between text-[11px]">
-                <span className="text-muted-foreground">
-                  Terms: <strong className="text-foreground">{s.paymentTerms}</strong>
-                </span>
-                <span className="text-muted-foreground">
-                  Lead Time: <strong className="text-foreground">{s.leadTimeDays} days</strong>
-                </span>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
         {/* SUPPLIER MODAL */}
         {showModal && (

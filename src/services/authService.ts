@@ -43,6 +43,32 @@ const SUPER_ADMIN_DEFAULT: User = {
   addresses: [],
 };
 
+export const CUSTOMER_DEMO_EMAIL = 'customer@gmail.com';
+export const CUSTOMER_DEFAULT: User = {
+  id: 'cust-101',
+  name: 'Maria Santos',
+  email: CUSTOMER_DEMO_EMAIL,
+  mobile: '0917-123-4567',
+  role: 'customer',
+  status: 'active',
+  permissions: [],
+  createdAt: '2025-06-12T10:00:00.000Z',
+  addresses: [
+    {
+      id: 'addr-01',
+      label: 'Home',
+      fullAddress: 'BLK 12 Lot 4, Dasmariñas, Cavite',
+      house: 'BLK 12',
+      street: 'Lot 4',
+      barangay: 'Purok 1',
+      city: 'Dasmariñas',
+      province: 'Cavite',
+      postalCode: '4114',
+      isDefault: true,
+    },
+  ],
+};
+
 // Local storage session helpers for seamless offline/demo operation
 export function getLocalAuthUser(): User | null {
   try {
@@ -250,6 +276,26 @@ export async function loginWithEmail(email: string, pass: string): Promise<User>
         // Fall back to local admin session if offline or blocked
         setLocalAuthUser(SUPER_ADMIN_DEFAULT);
         return SUPER_ADMIN_DEFAULT;
+      }
+    }
+  }
+
+  // 2. Direct Customer demo match (Maria Santos - Suki Loyalty Account)
+  if ((cleanEmail === CUSTOMER_DEMO_EMAIL.toLowerCase() || cleanEmail === 'maria.santos@gmail.com') && pass === '123456#') {
+    try {
+      const cred = await signInWithEmailAndPassword(auth, CUSTOMER_DEMO_EMAIL, '123456#');
+      const userProfile = await ensureAdminProfile(cred.user);
+      setLocalAuthUser(userProfile);
+      return userProfile;
+    } catch {
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, CUSTOMER_DEMO_EMAIL, '123456#');
+        const userProfile = await ensureAdminProfile(cred.user);
+        setLocalAuthUser(userProfile);
+        return userProfile;
+      } catch {
+        setLocalAuthUser(CUSTOMER_DEFAULT);
+        return CUSTOMER_DEFAULT;
       }
     }
   }

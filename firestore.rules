@@ -120,6 +120,10 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    match /pos_held_orders/{heldId} {
+      allow read, create, update, delete: if isCashier();
+    }
+
     // ----------------------------------------------------
     // Inventory Movements, Suppliers & POs
     // ----------------------------------------------------
@@ -182,6 +186,12 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.customerId == request.auth.uid);
+    }
+
+    match /customer_feedback/{feedbackId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isStaff() || (isAuthenticated() && resource.data.customerId == request.auth.uid);
     }
   }
 }

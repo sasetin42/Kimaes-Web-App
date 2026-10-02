@@ -276,6 +276,22 @@ export interface Review {
   createdAt: string;
 }
 
+export interface CustomerFeedback {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  customerId: string;
+  customerName: string;
+  customerEmail?: string;
+  customerMobile?: string;
+  rating: number; // 1 to 5
+  reviewText: string;
+  tags: string[];
+  orderItems?: string[];
+  createdAt: string;
+  status?: 'published' | 'pending';
+}
+
 // ---------------------------------------------
 // Centralized Inventory & Purchasing Types
 // ---------------------------------------------
@@ -476,4 +492,138 @@ export interface CustomerProfile {
   lastVisit: string;
   createdAt: string;
 }
+
+export interface HeldOrder {
+  id: string;
+  holdName: string;
+  ticketNumber?: string;
+  cashierId?: string;
+  cashierName?: string;
+  registerId?: string;
+  cart: POSCartItem[];
+  customer?: {
+    id?: string;
+    name: string;
+    mobile?: string;
+    email?: string;
+    loyaltyPoints?: number;
+  };
+  discount: {
+    type: 'fixed' | 'percentage';
+    value: number;
+    label?: string;
+  };
+  notes?: string;
+  itemCount: number;
+  subtotal: number;
+  discountAmount: number;
+  totalAmount: number;
+  heldAt: string;
+  orderType?: 'dine_in' | 'takeout' | 'drive_thru';
+  tableNumber?: string;
+}
+
+// -------------------------------------------------------------
+// Salo-Salo Rewards / Loyalty Program Types
+// -------------------------------------------------------------
+export type LoyaltyTier = 'Suki' | 'VIP Fiesta' | 'Brigada Corporate';
+
+export interface SukiProfile {
+  id: string;
+  customerId: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  mobile: string;
+  email: string;
+  birthday?: string;
+  customerType: 'individual' | 'corporate_hr';
+  companyName?: string;
+  companyRole?: string;
+  corporateAccountStatus?: 'pending' | 'verified';
+  address?: string;
+  city?: string;
+  province?: string;
+  preferredChannel: 'viber' | 'messenger' | 'sms';
+  currentTier: LoyaltyTier;
+  pointsBalance: number;
+  monetaryValue: number; // pointsBalance * pointMonetaryValue (₱2)
+  lifetimePointsEarned: number;
+  lifetimePointsRedeemed: number;
+  qualifyingSpend6Months: number;
+  lifetimeSpend: number;
+  orderCount: number;
+  firstPurchaseDate?: string;
+  lastPurchaseDate?: string;
+  registrationSource: 'physical_bilao_qr' | 'messenger' | 'online' | 'pos_walk_in';
+  viberNumber?: string;
+  messengerId?: string;
+  assignedSalesRep?: string;
+  birthdayBenefitClaimedYear?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type LoyaltyTransactionType =
+  | 'points_earned'
+  | 'points_redeemed'
+  | 'points_adjusted'
+  | 'voucher_issued'
+  | 'voucher_redeemed'
+  | 'tier_upgrade'
+  | 'birthday_benefit'
+  | 'reversal';
+
+export interface LoyaltyTransaction {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerMobile: string;
+  orderId?: string;
+  referenceNumber?: string;
+  type: LoyaltyTransactionType;
+  qualifyingAmount: number;
+  pointsEarned: number;
+  pointsRedeemed: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  tierAtTransaction: LoyaltyTier;
+  sourceChannel: 'online' | 'pos' | 'messenger' | 'viber' | 'corporate' | 'admin';
+  createdBy: string;
+  remarks: string;
+  createdAt: string;
+}
+
+export interface LoyaltyVoucher {
+  id: string;
+  code: string;
+  customerId?: string; // specific customer or public tier voucher
+  tier?: LoyaltyTier;
+  title: string;
+  description: string;
+  benefitType: 'free_item' | 'free_shipping' | 'upgrade_bilao' | 'cash_discount';
+  benefitValue: string | number;
+  minSpend?: number;
+  applicableProduct?: string;
+  startDate: string;
+  expirationDate: string;
+  status: 'active' | 'redeemed' | 'expired' | 'cancelled';
+  usedAt?: string;
+  usedOrderId?: string;
+}
+
+export interface LoyaltySettings {
+  programName: string;
+  earningRateSpend: number; // 200
+  earningRatePoints: number; // 2
+  corporateDoubleEarning: boolean; // true
+  pointMonetaryValue: number; // 2.0 (1 point = ₱2)
+  vipFiestaThreshold: number; // 8000
+  vipFiestaMonths: number; // 6
+  corporateSpendThreshold: number; // 20000
+  peakMonths: string[]; // ['September', 'October', 'November', 'December']
+  minRedemptionPoints: number; // 5
+}
+
+
 
